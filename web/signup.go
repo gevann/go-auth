@@ -31,6 +31,7 @@ func PostSignupHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		// write a bad request response
+		fmt.Printf("Error adding users object: %s", err)
 		http.Error(w, "User already exists", http.StatusBadRequest)
 		return
 	}

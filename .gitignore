@@ -1,0 +1,4 @@
+# Dot Files
+.*
+!.gitignore
+!.env.example

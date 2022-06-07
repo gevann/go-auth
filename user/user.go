@@ -37,10 +37,10 @@ var users = []User{}
 
 func init() {
 	// unmarshal users from json file
-	file, err := os.Open("user/users.json")
+	file, err := os.Open(os.Getenv("USERS_JSON_FILE"))
 	defer file.Close()
 	if os.IsNotExist(err) {
-		file, err = os.Create("users.json")
+		file, err = os.Create(os.Getenv("USERS_JSON_FILE"))
 		defer file.Close()
 	}
 	if err != nil {
@@ -112,17 +112,17 @@ func AddUserObject(email, fullname, passwordHash string, role int) (User, error)
 		},
 	}
 
-	existingUser, err := GetUserObject(email)
+	existingUser, _ := GetUserObject(email)
 
-	if err == nil {
+	if existingUser != (User{}) {
+		fmt.Printf("User already exists: %v\n", existingUser)
 		return existingUser, errors.New("User already exists")
 	}
 
 	users = append(users, newUser)
-	fmt.Println(users)
 
 	// marshal users to json file
-	file, err := os.Create("users.json")
+	file, err := os.Create(os.Getenv("USERS_JSON_FILE"))
 
 	defer file.Close()
 
