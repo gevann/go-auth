@@ -3,10 +3,12 @@ package user
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type dbData struct {
@@ -15,23 +17,31 @@ type dbData struct {
 }
 
 type pii struct {
-	Email        string `json:"email"`
-	PasswordHash string `json:"passwordHash"`
-	FullName     string `json:"fullName"`
-	Role         int    `json:"role"`
+	Email    string `json:"email"`
+	FullName string `json:"fullName"`
+	Role     int    `json:"role"`
 }
 
-type user struct {
-	dbData
-	pii
+type passwordProtected struct {
+	Hash string `json:"passwordHash"`
 }
 
-var users = []user{}
+type User struct {
+	DbData   dbData
+	Pii      pii
+	Password passwordProtected
+}
+
+var users = []User{}
 
 func init() {
 	// unmarshal users from json file
-	file, err := os.Open("users.json")
+	file, err := os.Open("user/users.json")
 	defer file.Close()
+	if os.IsNotExist(err) {
+		file, err = os.Create("users.json")
+		defer file.Close()
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +51,7 @@ func init() {
 	err = decoder.Decode(&users)
 	if err != nil {
 		if err.Error() == "EOF" {
-			users = []user{}
+			users = []User{}
 		} else {
 			panic(err)
 		}
@@ -49,7 +59,8 @@ func init() {
 
 	// Seed an existing admin user for testing
 	if len(users) == 0 {
-		user, err := AddUserObject("existinguser@email.com", "Existing Admin User", "password", 0)
+		hashedPassword := HashPassword("password")
+		user, err := AddUserObject("existinguser@email.com", "Existing Admin User", hashedPassword, 0)
 
 		if err != nil {
 			panic(err)
@@ -59,31 +70,44 @@ func init() {
 	}
 }
 
-func GetUserObject(email string) (user, error) {
+func HashPassword(password string) string {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(hash)
+}
+
+func GetUserObject(email string) (User, error) {
 	for _, user := range users {
-		if user.Email == email {
+		if user.Pii.Email == email {
 			return user, nil
 		}
 	}
 
-	return user{}, errors.New("User not found")
+	return User{}, errors.New("User not found")
 }
 
-func (instance *user) ValidatePasswordHash(pwsdhash string) bool {
-	return instance.PasswordHash == pwsdhash
+func (instance *User) ValidatePasswordHash(cleartext string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(instance.Password.Hash), []byte(cleartext)) == nil
 }
 
-func AddUserObject(email, fullname, passwordHash string, role int) (user, error) {
-	newUser := user{
-		dbData: dbData{
+// AddUserObject adds a new user to the application.
+// If the user already exists, it will return an error.
+// Returns the added user object and any errors.
+func AddUserObject(email, fullname, passwordHash string, role int) (User, error) {
+	newUser := User{
+		DbData: dbData{
 			ID:        uuid.New(),
 			CreatedAt: time.Now().Unix(),
 		},
-		pii: pii{
-			Email:        email,
-			PasswordHash: passwordHash,
-			FullName:     fullname,
-			Role:         role,
+		Pii: pii{
+			Email:    email,
+			FullName: fullname,
+			Role:     role,
+		},
+		Password: passwordProtected{
+			Hash: passwordHash,
 		},
 	}
 

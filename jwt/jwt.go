@@ -6,6 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func Generate(payloadMap map[string]string, secret string) (string, error) {
@@ -45,4 +48,59 @@ func Generate(payloadMap map[string]string, secret string) (string, error) {
 	token := message + "." + signature
 
 	return token, nil
+}
+
+func Validate(token, secret string) (bool, error) {
+	// We split the token into its parts
+	parts := strings.Split(token, ".")
+
+	// We check that the token is of the right length
+	if len(parts) != 3 {
+		return false, fmt.Errorf("Token is not of the correct length")
+	}
+
+	// decode header and payload back to strings
+	header64 := parts[0]
+	payload64 := parts[1]
+
+	header, err := base64.StdEncoding.DecodeString(header64)
+	if err != nil {
+		return false, err
+	}
+	payload, err := base64.StdEncoding.DecodeString(payload64)
+	if err != nil {
+		return false, err
+	}
+
+	// again create the signature
+	unsignedStr := string(header) + string(payload)
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(unsignedStr))
+
+	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	// check if the signature is correct
+	if signature != parts[2] {
+		return false, fmt.Errorf("Signature is not correct")
+	}
+
+	// unmarshal the payload
+	var payloadMap map[string]string
+	err = json.Unmarshal(payload, &payloadMap)
+	if err != nil {
+		return false, err
+	}
+
+	// check if the token is expired
+	if payloadMap["exp"] != "" {
+		exp, err := strconv.ParseInt(payloadMap["exp"], 10, 64)
+		if err != nil {
+			return false, err
+		}
+		if time.Now().Unix() > exp {
+			return false, fmt.Errorf("Token is expired")
+		}
+	}
+
+	return true, nil
 }

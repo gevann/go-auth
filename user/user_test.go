@@ -3,8 +3,6 @@ package user
 import (
 	"reflect"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func TestGetUserObject(t *testing.T) {
@@ -14,7 +12,7 @@ func TestGetUserObject(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    user
+		want    User
 		wantErr bool
 	}{
 		{
@@ -22,17 +20,14 @@ func TestGetUserObject(t *testing.T) {
 			args: args{
 				email: "existinguser@email.com",
 			},
-			want: user{
-				dbData: dbData{
-					ID:        uuid.Nil,
-					CreatedAt: 0,
+			want: User{
+				DbData: dbData{},
+				Pii: pii{
+					Email:    "existinguser@email.com",
+					FullName: "Existing Admin User",
+					Role:     0,
 				},
-				pii: pii{
-					Email:        "existinguser@email.com",
-					PasswordHash: "password",
-					FullName:     "Existing Admin User",
-					Role:         0,
-				},
+				Password: passwordProtected{},
 			},
 
 			wantErr: false,
@@ -46,8 +41,12 @@ func TestGetUserObject(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(got.pii, tt.want.pii) {
-				t.Errorf("GetUserObject() got = %v, want %v", got.pii, tt.want.pii)
+			if !reflect.DeepEqual(got.Pii, tt.want.Pii) {
+				t.Errorf("GetUserObject() got = %v, want %v", got.Pii, tt.want.Pii)
+			}
+
+			if !got.ValidatePasswordHash("password") {
+				t.Errorf("GetUserObject() got = %v, want %v", got.Pii, tt.want.Pii)
 			}
 		})
 	}
