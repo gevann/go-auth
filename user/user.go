@@ -3,6 +3,7 @@ package user
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -118,6 +119,7 @@ func AddUserObject(email, fullname, passwordHash string, role int) (User, error)
 	}
 
 	users = append(users, newUser)
+	fmt.Println(users)
 
 	// marshal users to json file
 	file, err := os.Create("users.json")

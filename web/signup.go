@@ -24,12 +24,6 @@ func PostSignupHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the form values
 	email := r.FormValue("email")
 	password := user.HashPassword(r.FormValue("password"))
-	passwordConfirm := r.FormValue("password_confirmation")
-
-	if password != passwordConfirm {
-		http.Error(w, "Passwords do not match", http.StatusBadRequest)
-		return
-	}
 
 	fullName := r.FormValue("fullName")
 
