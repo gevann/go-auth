@@ -86,42 +86,16 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-		// write a 200 response
+		w.Header().Set("content-type", "application/json")
+		w.Header().Add("X-AuthToken", token)
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write([]byte(token))
-		if err != nil {
-			http.Error(w, "Error writing response", http.StatusInternalServerError)
-			return
-		}
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func tokenValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Return if request is GET signin
-		if r.Method == "GET" && strings.Contains(r.URL.Path, "signin") {
-			fmt.Println("GET signin")
-			_, err := w.Write([]byte(`
-            <!DOCTYPE html>
-<html>
-    <head>
-        <title>Sign In</title>
-    </head>
-    <body>
-        <form action="/auth/signin" method="POST">
-            <input type="text" name="email" placeholder="Email" />
-            <input type="password" name="password" placeholder="Password" />
-            <input type="submit" value="Sign In" />
-        </form>
-    </body>
-</html>`))
-
-			if err != nil {
-				http.Error(w, "Error writing response", http.StatusInternalServerError)
-				return
-			}
-			return
-		}
 		// check if the request has an authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -153,11 +127,7 @@ func tokenValidationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		_, err = w.Write([]byte("Authorized Token"))
-		if err != nil {
-			http.Error(w, "Error writing response", http.StatusInternalServerError)
-			return
-		}
+		// if there is no error, call the next handler
+		next.ServeHTTP(w, r)
 	})
 }

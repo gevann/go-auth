@@ -104,3 +104,30 @@ func Validate(token, secret string) (bool, error) {
 
 	return true, nil
 }
+
+func Unmarshal(token string) (map[string]string, error) {
+	// We split the token into its parts
+	parts := strings.Split(token, ".")
+
+	// We check that the token is of the right length
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("Token is not of the correct length")
+	}
+
+	// decode header and payload back to strings
+	payload64 := parts[1]
+
+	payload, err := base64.StdEncoding.DecodeString(payload64)
+	if err != nil {
+		return nil, err
+	}
+
+	// unmarshal the payload
+	var payloadMap map[string]string
+	err = json.Unmarshal(payload, &payloadMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return payloadMap, nil
+}

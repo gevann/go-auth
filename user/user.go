@@ -34,13 +34,16 @@ type User struct {
 }
 
 var users = []User{}
+var usersJsonFile string
 
 func init() {
+	// Set the users json file path from the environment variable
+	usersJsonFile = os.Getenv("USERS_JSON_FILE")
 	// unmarshal users from json file
-	file, err := os.Open(os.Getenv("USERS_JSON_FILE"))
+	file, err := os.Open(usersJsonFile)
 	defer file.Close()
 	if os.IsNotExist(err) {
-		file, err = os.Create(os.Getenv("USERS_JSON_FILE"))
+		file, err = os.Create(usersJsonFile)
 		defer file.Close()
 	}
 	if err != nil {
@@ -89,6 +92,16 @@ func GetUserObject(email string) (User, error) {
 	return User{}, errors.New("User not found")
 }
 
+func GetUserById(id uuid.UUID) (User, error) {
+	for _, user := range users {
+		if user.DbData.ID == id {
+			return user, nil
+		}
+	}
+
+	return User{}, errors.New("User not found")
+}
+
 func (instance *User) ValidatePasswordHash(cleartext string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(instance.Password.Hash), []byte(cleartext)) == nil
 }
@@ -122,7 +135,7 @@ func AddUserObject(email, fullname, passwordHash string, role int) (User, error)
 	users = append(users, newUser)
 
 	// marshal users to json file
-	file, err := os.Create(os.Getenv("USERS_JSON_FILE"))
+	file, err := os.Create(usersJsonFile)
 
 	defer file.Close()
 
