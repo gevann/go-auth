@@ -45,7 +45,7 @@ func PostSignupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getSignedToken(user user.User) (string, error) {
+func getSignedToken(user user.User) (string, string, error) {
 	claimsMap := map[string]string{
 		"aud": "frontend.app.com",
 		"iss": "go-auth.app.com",
@@ -58,10 +58,16 @@ func getSignedToken(user user.User) (string, error) {
 	token, err := jwt.Generate(claimsMap, secret)
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return token, nil
+	refreshToken, err := jwt.RefreshToken()
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return token, refreshToken, nil
 }
 
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +86,7 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		token, err := getSignedToken(user)
+		token, refreshToken, err := getSignedToken(user)
 		if err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			log.Println(err)
@@ -88,6 +94,7 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("content-type", "application/json")
 		w.Header().Add("X-AuthToken", token)
+		w.Header().Add("X-RefreshToken", refreshToken)
 		w.WriteHeader(http.StatusOK)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

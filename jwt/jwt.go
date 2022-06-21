@@ -105,6 +105,20 @@ func Validate(token, secret string) (bool, error) {
 	return true, nil
 }
 
+// Generates refresh token.
+func RefreshToken() (string, error) {
+	// This is no securely random, but it's good enough for POC.
+	bytes := base64.StdEncoding.EncodeToString([]byte(strconv.FormatInt(time.Now().Unix(), 10)))
+
+	m := map[string]string{
+		"exp":   strconv.FormatInt(time.Now().Add(time.Hour*24).Unix(), 10),
+		"ref":   bytes,
+		"scope": "refresh",
+	}
+
+	return Generate(m, "secret")
+}
+
 func Unmarshal(token string) (map[string]string, error) {
 	// We split the token into its parts
 	parts := strings.Split(token, ".")
