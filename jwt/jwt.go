@@ -50,13 +50,13 @@ func Generate(payloadMap map[string]string, secret string) (string, error) {
 	return token, nil
 }
 
-func Validate(token, secret string) (bool, error) {
+func validate(token, secret string) (map[string]string, error) {
 	// We split the token into its parts
 	parts := strings.Split(token, ".")
 
 	// We check that the token is of the right length
 	if len(parts) != 3 {
-		return false, fmt.Errorf("Token is not of the correct length")
+		return nil, fmt.Errorf("Token is not of the correct length")
 	}
 
 	// decode header and payload back to strings
@@ -65,11 +65,11 @@ func Validate(token, secret string) (bool, error) {
 
 	header, err := base64.StdEncoding.DecodeString(header64)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	payload, err := base64.StdEncoding.DecodeString(payload64)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	// again create the signature
@@ -81,19 +81,28 @@ func Validate(token, secret string) (bool, error) {
 
 	// check if the signature is correct
 	if signature != parts[2] {
-		return false, fmt.Errorf("Signature is not correct")
+		return nil, fmt.Errorf("Signature is not correct")
 	}
 
 	// unmarshal the payload
 	var payloadMap map[string]string
 	err = json.Unmarshal(payload, &payloadMap)
 	if err != nil {
+		return nil, err
+	}
+
+	return payloadMap, nil
+}
+
+func Validate(token, secret string) (bool, error) {
+	payload, err := validate(token, secret)
+	if err != nil {
 		return false, err
 	}
 
 	// check if the token is expired
-	if payloadMap["exp"] != "" {
-		exp, err := strconv.ParseInt(payloadMap["exp"], 10, 64)
+	if payload["exp"] != "" {
+		exp, err := strconv.ParseInt(payload["exp"], 10, 64)
 		if err != nil {
 			return false, err
 		}
@@ -103,6 +112,16 @@ func Validate(token, secret string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func ValidateWithoutExpiration(token, secret string) (map[string]string, error) {
+	payload, err := validate(token, secret)
+
+	if err != nil {
+		return payload, err
+	}
+
+	return payload, nil
 }
 
 // Generates refresh token.
