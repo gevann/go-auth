@@ -94,7 +94,13 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("content-type", "application/json")
 		w.Header().Add("X-AuthToken", token)
-		w.Header().Add("X-RefreshToken", refreshToken)
+		cookie := http.Cookie{
+			Name:     "X-RefreshToken",
+			Value:    refreshToken,
+			Expires:  time.Now().Add(time.Hour * 24 * 7),
+			HttpOnly: true,
+		}
+		http.SetCookie(w, &cookie)
 		w.WriteHeader(http.StatusOK)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
