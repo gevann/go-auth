@@ -125,7 +125,7 @@ func ValidateWithoutExpiration(token, secret string) (map[string]string, error) 
 }
 
 // Generates refresh token.
-func RefreshToken() (string, error) {
+func GenerateRefreshToken() (string, error) {
 	// This is no securely random, but it's good enough for POC.
 	bytes := base64.StdEncoding.EncodeToString([]byte(strconv.FormatInt(time.Now().Unix(), 10)))
 

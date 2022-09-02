@@ -65,7 +65,7 @@ func getSignedToken(user user.User) (string, string, time.Duration, error) {
 		return "", "", duration, err
 	}
 
-	refreshToken, err := jwt.RefreshToken()
+	refreshToken, err := jwt.GenerateRefreshToken()
 
 	if err != nil {
 		return "", "", duration, err
