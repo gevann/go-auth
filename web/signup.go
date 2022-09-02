@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/gevann/go-auth/jwt"
 	"github.com/gevann/go-auth/user"
-	"github.com/google/uuid"
 )
 
 // This is not secure. It is just for testing purposes.
@@ -49,28 +49,29 @@ func PostSignupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getSignedToken(user user.User) (string, string, error) {
+func getSignedToken(user user.User) (string, string, time.Duration, error) {
+	duration := time.Duration(1 * time.Minute)
 	claimsMap := map[string]string{
 		"aud": "frontend.app.com",
 		"iss": "go-auth.app.com",
 		"sub": user.DbData.ID.String(),
-		"exp": fmt.Sprint(time.Now().Add(time.Minute * 1).Unix()),
+		"exp": fmt.Sprint(time.Now().Add(duration).Unix()),
 		"iat": fmt.Sprint(time.Now().Unix()),
 	}
 
 	token, err := jwt.Generate(claimsMap, secret)
 
 	if err != nil {
-		return "", "", err
+		return "", "", duration, err
 	}
 
 	refreshToken, err := jwt.RefreshToken()
 
 	if err != nil {
-		return "", "", err
+		return "", "", duration, err
 	}
 
-	return token, refreshToken, nil
+	return token, refreshToken, duration, nil
 }
 
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
@@ -89,101 +90,40 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		token, refreshToken, err := getSignedToken(user)
+		token, refreshToken, duration, err := getSignedToken(user)
 		if err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			log.Println(err)
 			return
 		}
-		w.Header().Set("content-type", "application/json")
-		w.Header().Add("X-AuthToken", token)
-		cookie := http.Cookie{
-			Name:     "X-RefreshToken",
-			Value:    refreshToken,
-			Expires:  time.Now().Add(time.Hour * 24 * 7),
-			HttpOnly: true,
+		w.Header().Set("content-type", "application/json;charset=UTF-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Pragma", "no-cache") // For http 1.0 compatibility
+		type response struct {
+			AccessToken  string  `json:"access_token"`
+			TokenType    string  `json:"token_type"`
+			ExpiresIn    float64 `json:"expires_in"`
+			RefreshToken string  `json:"refresh_token"`
 		}
-		http.SetCookie(w, &cookie)
+
+		resp := response{
+			AccessToken:  token,
+			TokenType:    "Bearer",
+			ExpiresIn:    duration.Seconds(),
+			RefreshToken: refreshToken,
+		}
+
+		encoder := json.NewEncoder(w)
+		err = encoder.Encode(resp)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			log.Println(err)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-}
-
-func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
-	// get the refresh token from the cookie jar
-	cookie, err := r.Cookie("X-RefreshToken")
-	if err != nil {
-		http.Error(w, "No refresh token", http.StatusUnauthorized)
-		return
-	}
-
-	// validate the refresh token
-	check, err := jwt.Validate(cookie.Value, secret)
-	if !check || err != nil {
-		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
-		return
-	}
-
-	// get access token from the header
-	authHeader := r.Header.Get("Authorization")
-
-	if authHeader == "" {
-		http.Error(w, "No access token", http.StatusUnauthorized)
-		return
-	}
-
-	parts := strings.Split(authHeader, " ")
-
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	accessToken := parts[1]
-	// validate the access token, allowing expired tokens
-	payload, err := jwt.ValidateWithoutExpiration(accessToken, secret)
-
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Invalid access token", http.StatusUnauthorized)
-		return
-	}
-
-	// get the user from the payload
-	if sub, ok := payload["sub"]; ok {
-		uuid, err := uuid.Parse(sub)
-		if err != nil {
-			http.Error(w, "unable to get user", http.StatusUnauthorized)
-			return
-		}
-		user, err := user.GetUserById(uuid)
-		if err != nil {
-			http.Error(w, "unable to get user", http.StatusUnauthorized)
-			return
-		}
-		token, refreshToken, err := getSignedToken(user)
-		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			log.Println(err)
-			return
-		}
-
-		w.Header().Set("content-type", "application/json")
-		w.Header().Add("X-AuthToken", token)
-		cookie := http.Cookie{
-			Name:     "X-RefreshToken",
-			Value:    refreshToken,
-			Expires:  time.Now().Add(time.Hour * 24 * 7),
-			HttpOnly: true,
-		}
-		http.SetCookie(w, &cookie)
-		w.WriteHeader(http.StatusOK)
-	} else {
-		http.Error(w, "Invalid access token", http.StatusUnauthorized)
-		return
-	}
-
 }
 
 func tokenValidationMiddleware(next http.Handler) http.Handler {
