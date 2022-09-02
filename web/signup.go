@@ -31,7 +31,7 @@ func PostSignupHandler(w http.ResponseWriter, r *http.Request) {
 
 	fullName := r.FormValue("fullName")
 
-	_, err := user.AddUserObject(email, fullName, password, 0)
+	_, err := user.InsertUser(email, fullName, password, 0)
 
 	if err != nil {
 		// write a bad request response
@@ -82,7 +82,7 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 		// Get the form values
 		email := r.FormValue("email")
 		password := r.FormValue("password")
-		user, err := user.GetUserObject(email)
+		user, err := user.GetUserByEmail(email)
 
 		if err != nil || !user.ValidatePasswordHash(password) {
 			// write a bad request response
