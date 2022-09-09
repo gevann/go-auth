@@ -101,6 +101,7 @@ func GenerateFromRefreshToken(refreshTokenContent, accessToken, secret string) (
 		goto INVALIDATE
 	}
 	if refreshToken.Valid == false {
+		err = fmt.Errorf("Refresh token is not valid")
 		goto INVALIDATE
 	}
 
