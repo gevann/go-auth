@@ -114,7 +114,6 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}

@@ -83,6 +83,67 @@ func Generate(payloadMap map[string]string, secret string) (string, string, erro
 	return accessToken, refreshToken, nil
 }
 
+func GenerateFromRefreshToken(refreshTokenContent, accessToken, secret string) (string, string, error) {
+	var refreshToken RefreshToken
+	var newAccessToken string
+	var newRefreshToken string
+	var err error
+	var payload map[string]string
+	var refreshTokenPayloadMap map[string]string
+	duration := time.Duration(1 * time.Minute)
+
+	refreshToken, err = GetRefreshTokenByContents(refreshTokenContent)
+
+	if err != nil {
+		goto INVALIDATE
+	}
+	if refreshToken.AuthToken != accessToken {
+		goto INVALIDATE
+	}
+	if refreshToken.Valid == false {
+		goto INVALIDATE
+	}
+
+	payload, err = Unmarshal(refreshToken.AuthToken)
+
+	if err != nil {
+		goto INVALIDATE
+	}
+
+	payload["exp"] = strconv.FormatInt(time.Now().Add(duration).Unix(), 10)
+
+	newAccessToken, err = generate(payload, secret)
+
+	if err != nil {
+		goto INVALIDATE
+	}
+
+	refreshTokenPayloadMap = map[string]string{
+		"exp":   strconv.FormatInt(time.Now().Add(time.Hour*24).Unix(), 10),
+		"ref":   base64.StdEncoding.EncodeToString([]byte(strconv.FormatInt(time.Now().Unix(), 10))),
+		"scope": "refresh",
+	}
+
+	newRefreshToken, err = generate(refreshTokenPayloadMap, secret)
+
+	if err != nil {
+		goto INVALIDATE
+	}
+
+	// Persist the refresh token in the database with the accessToken
+	_, err = InsertRefreshTokenExistingFamily(newRefreshToken, accessToken)
+	if err != nil {
+		goto INVALIDATE
+	}
+
+	return newAccessToken, newRefreshToken, nil
+
+INVALIDATE:
+	_ = InvalidateRefreshTokenTree(accessToken)
+
+	return newAccessToken, newRefreshToken, err
+}
+
 func validate(token, secret string) (map[string]string, error) {
 	// We split the token into its parts
 	parts := strings.Split(token, ".")

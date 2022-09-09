@@ -3,6 +3,7 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -56,7 +57,7 @@ func InsertRefreshTokenNewFamily(content string, authToken string) (id uuid.UUID
 // This is used when a refresh token is used to generate a new refresh token.
 func InsertRefreshTokenExistingFamily(content string, authToken string) (id uuid.UUID, err error) {
 	var existing RefreshToken
-	db.First(&existing, "AuthToken = ?", authToken)
+	db.First(&existing, "auth_token = ?", authToken)
 
 	if existing.ID == uuid.Nil {
 		return uuid.Nil, errors.New("Refresh token family not found")
@@ -66,6 +67,12 @@ func InsertRefreshTokenExistingFamily(content string, authToken string) (id uuid
 		ID:        uuid.New(),
 		AuthToken: existing.AuthToken,
 		Content:   content,
+	}
+
+	// invalidate the existing refresh tokens in the family
+	err = InvalidateRefreshTokenTree(existing.AuthToken)
+	if err != nil {
+		return uuid.Nil, err
 	}
 
 	db.Create(&refreshToken)
@@ -89,17 +96,10 @@ func GetRefreshTokenByContents(contents string) (RefreshToken, error) {
 
 // invalidateRefreshTokenTree invalidates all refresh tokens in the family tree
 func InvalidateRefreshTokenTree(authToken string) error {
-	db.Model(&RefreshToken{}).Where("AuthToken = ?", authToken).Update("Valid", false)
+	db.Model(&RefreshToken{}).Where("auth_token = ?", authToken).Update("Valid", false)
 
 	return nil
 }
-
-// init initializes the database connection
-/*
-func init() {
-	configureDatabase("jwt-service.db")
-}
-*/
 
 func ConfigureDatabase(dbName string) {
 	var err error
@@ -116,24 +116,10 @@ func ConfigureDatabase(dbName string) {
 		panic(err)
 	}
 
-	seed()
+	clear()
 }
 
-func seed() {
-	seededId, err := uuid.Parse("ddbe6b88-863a-492f-9c30-ee5908c09694")
-	if err != nil {
-		panic(err)
-	}
-
-	// Check if the seeded refresh token exists
-	var seeded RefreshToken
-	db.First(&seeded, "ID = ?", seededId)
-
-	if seeded == (RefreshToken{}) {
-		fmt.Printf("Seeding database %s with refresh token", db.Name())
-		_, err := InsertRefreshTokenNewFamily("test", "auth-token")
-		if err != nil {
-			panic(err)
-		}
-	}
+func clear() {
+	log.Println(fmt.Sprintf("Clearing database %s", db.Name()))
+	db.Exec("DELETE FROM refresh_tokens")
 }

@@ -22,6 +22,8 @@ func StartServer() {
 	r.HandleFunc("/signup", PostSignupHandler).Methods("POST")
 	r.HandleFunc("/signup", GetSignupHandler).Methods("GET")
 	r.HandleFunc("/signin", SigninHandler).Methods("POST", "GET")
+	r.HandleFunc("/refresh", PostRefreshHandler).Methods("POST")
+
 	v1.Use(tokenValidationMiddleware)
 
 	v1.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
