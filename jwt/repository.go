@@ -101,7 +101,7 @@ func init() {
 }
 */
 
-func configureDatabase(dbName string) {
+func ConfigureDatabase(dbName string) {
 	var err error
 	db, err = gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {

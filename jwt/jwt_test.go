@@ -6,7 +6,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	configureDatabase("jwt-service.test.db")
+	ConfigureDatabase("jwt-service.test.db")
 	exitVal := m.Run()
 	os.Remove("jwt-service.test.db")
 
