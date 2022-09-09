@@ -59,13 +59,7 @@ func getSignedToken(user user.User) (string, string, time.Duration, error) {
 		"iat": fmt.Sprint(time.Now().Unix()),
 	}
 
-	token, err := jwt.Generate(claimsMap, secret)
-
-	if err != nil {
-		return "", "", duration, err
-	}
-
-	refreshToken, err := jwt.GenerateRefreshToken()
+	token, refreshToken, err := jwt.Generate(claimsMap, secret)
 
 	if err != nil {
 		return "", "", duration, err

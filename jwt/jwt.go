@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func Generate(payloadMap map[string]string, secret string) (string, error) {
+func generate(payloadMap map[string]string, secret string) (string, error) {
 	// create a new hash of type sha256. We pass the secret key as the key
 	h := hmac.New(sha256.New, []byte(secret))
 
@@ -47,7 +47,40 @@ func Generate(payloadMap map[string]string, secret string) (string, error) {
 	// Finally we have the token
 	token := message + "." + signature
 
+	if err != nil {
+		return "", err
+	}
+
 	return token, nil
+}
+
+func Generate(payloadMap map[string]string, secret string) (string, string, error) {
+	accessToken, err := generate(payloadMap, secret)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshTokenPayloadMap := map[string]string{
+		"exp":   strconv.FormatInt(time.Now().Add(time.Hour*24).Unix(), 10),
+		"ref":   base64.StdEncoding.EncodeToString([]byte(strconv.FormatInt(time.Now().Unix(), 10))),
+		"scope": "refresh",
+	}
+
+	refreshToken, err := generate(refreshTokenPayloadMap, secret)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	// Persist the refresh token in the database with the accessToken
+	_, err = InsertRefreshTokenNewFamily(refreshToken, accessToken)
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
 }
 
 func validate(token, secret string) (map[string]string, error) {
@@ -122,20 +155,6 @@ func ValidateWithoutExpiration(token, secret string) (map[string]string, error) 
 	}
 
 	return payload, nil
-}
-
-// Generates refresh token.
-func GenerateRefreshToken() (string, error) {
-	// This is no securely random, but it's good enough for POC.
-	bytes := base64.StdEncoding.EncodeToString([]byte(strconv.FormatInt(time.Now().Unix(), 10)))
-
-	m := map[string]string{
-		"exp":   strconv.FormatInt(time.Now().Add(time.Hour*24).Unix(), 10),
-		"ref":   bytes,
-		"scope": "refresh",
-	}
-
-	return Generate(m, "secret")
 }
 
 func Unmarshal(token string) (map[string]string, error) {

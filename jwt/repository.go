@@ -95,16 +95,20 @@ func InvalidateRefreshTokenTree(authToken string) error {
 }
 
 // init initializes the database connection
+/*
 func init() {
-	configureDatabase()
+	configureDatabase("jwt-service.db")
 }
+*/
 
-func configureDatabase() {
+func configureDatabase(dbName string) {
 	var err error
-	db, err = gorm.Open(sqlite.Open("jwt-service.db"), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		panic(fmt.Sprintf("Failed to connect to database %s: %s", dbName, err))
 	}
+
+	fmt.Printf("CONNECTED TO DATABASE %s\n", dbName)
 
 	// Migrate the schema
 	err = db.AutoMigrate(&RefreshToken{})
@@ -126,7 +130,7 @@ func seed() {
 	db.First(&seeded, "ID = ?", seededId)
 
 	if seeded == (RefreshToken{}) {
-		fmt.Println("Seeding database `jwt-service.db` with refresh token")
+		fmt.Printf("Seeding database %s with refresh token", db.Name())
 		_, err := InsertRefreshTokenNewFamily("test", "auth-token")
 		if err != nil {
 			panic(err)
