@@ -2,4 +2,4 @@
 .*
 !.gitignore
 !.env.example
-jwt-service.db
+*.db
